@@ -1,0 +1,316 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+@source "./**/*.{ts,tsx}";
+
+@theme inline {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, "SFMono-Regular", ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-titlebar: var(--titlebar);
+  --color-rail: var(--rail);
+  --color-rail-foreground: var(--rail-foreground);
+  --color-rail-strong: var(--rail-strong);
+  --color-rail-hover: var(--rail-hover);
+  --color-rail-active: var(--rail-active);
+  --color-rail-indicator: var(--rail-indicator);
+  --color-sidebar: var(--sidebar);
+  --color-panel: var(--panel);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--panel);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--border);
+  --color-ring: var(--ring);
+
+  --color-statusbar: var(--statusbar);
+  --color-statusbar-foreground: var(--statusbar-foreground);
+  --color-statusbar-hover: var(--statusbar-hover);
+  --color-statusbar-online: var(--statusbar-online);
+  --color-statusbar-warning: var(--statusbar-warning);
+  --color-statusbar-error: var(--statusbar-error);
+
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success-foreground: var(--success-foreground);
+  --color-info-foreground: var(--info-foreground);
+  --color-info: var(--info);
+}
+
+:root {
+  color-scheme: light;
+
+  --background: #ffffff;
+  --foreground: #09090b;
+
+  --titlebar: #f4f4f5;
+  --rail: #f4f4f5;
+  --rail-foreground: #52525b;
+  --rail-strong: #09090b;
+  --rail-hover: #e4e4e7;
+  --rail-active: #e4e4e7;
+  --rail-indicator: #10b981;
+  --sidebar: #fafafa;
+  --panel: #ffffff;
+  --card: #ffffff;
+
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #10b981;
+  --warning: #d97706;
+
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --ring: #10b981;
+
+  --statusbar: #18181b;
+  --statusbar-foreground: #e4e4e7;
+  --statusbar-hover: #27272a;
+  --statusbar-online: #34d399;
+  --statusbar-warning: #fbbf24;
+  --statusbar-error: #f87171;
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-700);
+  --success-foreground: var(--color-emerald-700);
+  --warning-foreground: var(--color-amber-700);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #0c0d10;
+  --foreground: #f4f4f5;
+
+  --titlebar: #111318;
+  --rail: #111318;
+  --rail-foreground: #a1a1aa;
+  --rail-strong: #fafafa;
+  --rail-hover: #1c1f26;
+  --rail-active: #222630;
+  --rail-indicator: #10b981;
+  --sidebar: #14161c;
+  --panel: #161920;
+  --card: #161920;
+
+  --primary: #10b981;
+  --primary-foreground: #052e16;
+  --secondary: #1e212a;
+  --muted: #1a1d24;
+  --muted-foreground: #9ca3af;
+  --accent: #1f242d;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #34d399;
+  --warning: #f59e0b;
+
+  --border: #262934;
+  --border-strong: #343846;
+  --ring: #10b981;
+
+  --statusbar: #090a0d;
+  --statusbar-foreground: #a1a1aa;
+  --statusbar-hover: #181a20;
+  --statusbar-online: #34d399;
+  --statusbar-warning: #fbbf24;
+  --statusbar-error: #f87171;
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-400);
+  --success-foreground: var(--color-emerald-400);
+  --warning-foreground: var(--color-amber-400);
+}
+
+@layer base {
+  * { @apply border-border; }
+
+  html, body, #root { height: 100%; }
+
+  body {
+    @apply m-0 min-w-80 overflow-hidden bg-background font-sans text-foreground antialiased;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    background-clip: content-box;
+    border: 2px solid transparent;
+    border-radius: 999px;
+  }
+}
+
+@keyframes call-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 28%, transparent); }
+  70% { box-shadow: 0 0 0 18px color-mix(in srgb, var(--primary) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent); }
+}
+
+@keyframes status-pulse {
+  50% { opacity: 0.4; }
+}
+
+.call-pulse { animation: call-pulse 2.4s ease-out infinite; }
+.status-pulse { animation: status-pulse 1.6s ease-in-out infinite; }
+
+.workbench-stage {
+  background:
+    radial-gradient(ellipse 75% 48% at 50% 0%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 72%),
+    var(--background);
+}
+.dark .workbench-stage {
+  background:
+    radial-gradient(ellipse 75% 50% at 50% 0%, color-mix(in srgb, var(--primary) 11%, transparent), transparent 72%),
+    var(--background);
+}
+
+/* Only isolate named layout slots during view/call/filter transitions so theme switching captures ONE unified root frame across every module. */
+:root[data-transition="view"] .vt-titlebar,
+:root[data-transition="call"] .vt-titlebar,
+:root[data-transition="filter"] .vt-titlebar { view-transition-name: workbench-titlebar; }
+
+:root[data-transition="view"] .vt-rail,
+:root[data-transition="call"] .vt-rail,
+:root[data-transition="filter"] .vt-rail { view-transition-name: workbench-rail; }
+
+:root[data-transition="view"] .vt-statusbar,
+:root[data-transition="call"] .vt-statusbar,
+:root[data-transition="filter"] .vt-statusbar { view-transition-name: workbench-statusbar; }
+
+:root[data-transition="view"] .vt-main { view-transition-name: main-stage; }
+:root[data-transition="call"] .vt-call { view-transition-name: call-stage; }
+
+@keyframes vt-stage-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(6px) scale(0.992); }
+}
+
+@keyframes vt-stage-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.992); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes vt-call-in {
+  from { opacity: 0; transform: scale(0.975); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes vt-theme-reveal {
+  from { clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 50%)); }
+  to { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 50%)); }
+}
+
+:root[data-transition="view"]::view-transition-old(workbench-titlebar),
+:root[data-transition="view"]::view-transition-new(workbench-titlebar),
+:root[data-transition="view"]::view-transition-old(workbench-rail),
+:root[data-transition="view"]::view-transition-new(workbench-rail),
+:root[data-transition="view"]::view-transition-old(workbench-statusbar),
+:root[data-transition="view"]::view-transition-new(workbench-statusbar),
+:root[data-transition="call"]::view-transition-old(workbench-titlebar),
+:root[data-transition="call"]::view-transition-new(workbench-titlebar),
+:root[data-transition="call"]::view-transition-old(workbench-rail),
+:root[data-transition="call"]::view-transition-new(workbench-rail),
+:root[data-transition="call"]::view-transition-old(workbench-statusbar),
+:root[data-transition="call"]::view-transition-new(workbench-statusbar),
+:root[data-transition="filter"]::view-transition-old(workbench-titlebar),
+:root[data-transition="filter"]::view-transition-new(workbench-titlebar),
+:root[data-transition="filter"]::view-transition-old(workbench-rail),
+:root[data-transition="filter"]::view-transition-new(workbench-rail),
+:root[data-transition="filter"]::view-transition-old(workbench-statusbar),
+:root[data-transition="filter"]::view-transition-new(workbench-statusbar) {
+  animation: none;
+}
+
+:root[data-transition="view"]::view-transition-old(main-stage) {
+  animation: vt-stage-out 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+:root[data-transition="view"]::view-transition-new(main-stage) {
+  animation: vt-stage-in 210ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+:root[data-transition="call"]::view-transition-old(call-stage) {
+  animation: vt-stage-out 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+:root[data-transition="call"]::view-transition-new(call-stage) {
+  animation: vt-call-in 230ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+:root[data-transition="filter"] [data-slot="tab-indicator"] {
+  transition: none !important;
+}
+
+:root[data-transition="filter"]::view-transition-old(root),
+:root[data-transition="filter"]::view-transition-new(root) {
+  animation-duration: 150ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Freeze local CSS color/border/shadow transitions during theme snapshot capture so every module reaches final colors together. */
+:root[data-transition="theme"] *,
+:root[data-transition="theme"] *::before,
+:root[data-transition="theme"] *::after {
+  transition: none !important;
+}
+
+:root[data-transition="theme"]::view-transition-old(root),
+:root[data-transition="theme"]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:root[data-transition="theme"]::view-transition-old(root) {
+  z-index: 1;
+}
+
+:root[data-transition="theme"]::view-transition-new(root) {
+  z-index: 2147483646;
+  animation: vt-theme-reveal 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

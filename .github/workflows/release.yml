@@ -1,0 +1,111 @@
+name: Release Desktop
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun test src/phone
+      - run: bun run build
+
+  build:
+    name: Build (${{ matrix.platform }})
+    needs: test
+    fail-fast: false
+    strategy:
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-22.04
+            bundles: deb,appimage
+            rust_target: ""
+          - platform: windows-x86_64
+            os: windows-latest
+            bundles: nsis
+            rust_target: ""
+          - platform: macos-universal
+            os: macos-latest
+            bundles: dmg
+            rust_target: universal-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install Linux Tauri dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev build-essential curl wget file libxdo-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Add macOS universal Rust targets
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: bun install --frozen-lockfile
+      - name: Build Tauri bundle (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: bun run desktop:build -- --bundles ${{ matrix.bundles }}
+      - name: Build Tauri bundle (Windows)
+        if: matrix.os == 'windows-latest'
+        run: bun run desktop:build -- --bundles ${{ matrix.bundles }}
+      - name: Build Tauri bundle (macOS Universal)
+        if: matrix.os == 'macos-latest'
+        run: bun run desktop:build -- --bundles ${{ matrix.bundles }} --target ${{ matrix.rust_target }}
+      - name: Collect installers
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          find src-tauri/target -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' -o -name '*.dmg' \) -exec cp -v {} release-assets/ \;
+          ls -lh release-assets/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: all-assets
+          merge-multiple: true
+      - uses: actions/checkout@v4
+        with:
+          path: src
+      - name: Generate SHA256SUMS and stage license notices
+        working-directory: all-assets
+        shell: bash
+        run: |
+          shopt -s nullglob
+          cp ../src/LICENSE ./LICENSE.txt
+          cp ../src/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
+          sha256sum *.deb *.AppImage *.exe *.dmg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: all-assets/*
+          generate_release_notes: true
