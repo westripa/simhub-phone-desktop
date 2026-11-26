@@ -65,22 +65,25 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bun run desktop:build -- --bundles ${{ matrix.bundles }}
       - name: Build Tauri bundle (Windows)
         if: matrix.os == 'windows-latest'
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bun run desktop:build -- --bundles ${{ matrix.bundles }}
       - name: Build Tauri bundle (macOS Universal)
         if: matrix.os == 'macos-latest'
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bun run desktop:build -- --bundles ${{ matrix.bundles }} --target ${{ matrix.rust_target }}
       - name: Collect installers and updater bundles
         shell: bash
         run: |
           mkdir -p release-assets
-          find src-tauri/target -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.AppImage.sig' -o -name '*.exe' -o -name '*.exe.sig' -o -name '*.dmg' -o -name '*.app.tar.gz' -o -name '*.app.tar.gz.sig' \) | while IFS= read -r f; do
+          find src-tauri/target -path '*/bundle/*' -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.AppImage.sig' -o -name '*.exe' -o -name '*.exe.sig' -o -name '*.dmg' -o -name '*.app.tar.gz' -o -name '*.app.tar.gz.sig' \) | while IFS= read -r f; do
             base="$(basename "$f" | tr ' ' '.')"
             cp -v "$f" "release-assets/${base}"
           done

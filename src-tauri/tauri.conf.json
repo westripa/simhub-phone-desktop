@@ -75,7 +75,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0NzMxRUVGQzgzMTIzQzIKUldUQ0l6SEk3eDV6cERob0kwc3V6bEJtbGtzRFBycCtPZjBnb2F3Qi9XVnhBL09XZXpqSy9jczIK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ1OTY5OTA3OTE1MTIyMDIKUldRQ0lsR1JCNW1XUlpPVnV0WDNxaVMxSDBxRHVDQ0hDckdHckxWS2lpN1NlTXJJL0Q3ajM1ZjQK",
       "endpoints": [
         "https://github.com/westripa/simhub-phone-desktop/releases/latest/download/latest.json"
       ]
