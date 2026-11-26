@@ -39,7 +39,7 @@ jobs:
             rust_target: ""
           - platform: macos-universal
             os: macos-latest
-            bundles: dmg
+            bundles: app,dmg
             rust_target: universal-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
@@ -64,18 +64,26 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: bun run desktop:build -- --bundles ${{ matrix.bundles }}
       - name: Build Tauri bundle (Windows)
         if: matrix.os == 'windows-latest'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: bun run desktop:build -- --bundles ${{ matrix.bundles }}
       - name: Build Tauri bundle (macOS Universal)
         if: matrix.os == 'macos-latest'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: bun run desktop:build -- --bundles ${{ matrix.bundles }} --target ${{ matrix.rust_target }}
-      - name: Collect installers
+      - name: Collect installers and updater bundles
         shell: bash
         run: |
           mkdir -p release-assets
-          find src-tauri/target -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' -o -name '*.dmg' \) -exec cp -v {} release-assets/ \;
+          find src-tauri/target -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.AppImage.sig' -o -name '*.exe' -o -name '*.exe.sig' -o -name '*.dmg' -o -name '*.app.tar.gz' -o -name '*.app.tar.gz.sig' \) | while IFS= read -r f; do
+            base="$(basename "$f" | tr ' ' '.')"
+            cp -v "$f" "release-assets/${base}"
+          done
           ls -lh release-assets/
       - uses: actions/upload-artifact@v4
         with:
@@ -96,15 +104,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: src
-      - name: Generate SHA256SUMS and stage license notices
+      - name: Generate latest.json, SHA256SUMS and stage license notices
         working-directory: all-assets
         shell: bash
         run: |
           shopt -s nullglob
           cp ../src/LICENSE ./LICENSE.txt
           cp ../src/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
-          sha256sum *.deb *.AppImage *.exe *.dmg > SHA256SUMS.txt
+          python3 ../src/scripts/generate-latest-json.py \
+            --dir . \
+            --tag "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --output ./latest.json
+          sha256sum *.deb *.AppImage *.exe *.dmg *.app.tar.gz > SHA256SUMS.txt
           cat SHA256SUMS.txt
+          cat ./latest.json
       - uses: softprops/action-gh-release@v2
         with:
           files: all-assets/*

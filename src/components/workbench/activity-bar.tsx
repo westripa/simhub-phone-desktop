@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Headphones, History, Layers, Phone, UserRoundCog } from 'lucide-react'
+import { ArrowDownToLine, Headphones, History, Layers, Phone, UserRoundCog } from 'lucide-react'
 import { ConnectionDot } from '@/components/phone/connection-dot'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -56,9 +56,11 @@ export function ActivityBar({
   numberCount,
   onlineCount,
   isDemo,
+  updateAvailable,
   onViewChange,
   onAudioSettings,
   onAccountSettings,
+  onCheckUpdates,
 }: {
   view: View
   connection: Connection
@@ -67,9 +69,11 @@ export function ActivityBar({
   numberCount?: number
   onlineCount?: number
   isDemo?: boolean
+  updateAvailable?: boolean
   onViewChange: (view: View) => void
   onAudioSettings: () => void
   onAccountSettings: () => void
+  onCheckUpdates?: () => void
 }) {
   return (
     <TooltipProvider>
@@ -104,6 +108,14 @@ export function ActivityBar({
 
         <div className="mt-auto flex flex-col items-center gap-1.5">
           <Separator className="my-1 w-6" />
+          {onCheckUpdates && (
+            <RailItem label={updateAvailable ? '发现新版本 · 点击更新' : '检查更新'} onClick={onCheckUpdates}>
+              <ArrowDownToLine size={19} strokeWidth={1.8} />
+              {updateAvailable && (
+                <span aria-hidden="true" className="absolute right-1.5 top-1.5 size-2 rounded-full bg-primary ring-2 ring-rail" />
+              )}
+            </RailItem>
+          )}
           <RailItem label="声音与设备" onClick={onAudioSettings}>
             <Headphones size={19} strokeWidth={1.8} />
           </RailItem>

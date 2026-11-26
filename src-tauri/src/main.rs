@@ -52,6 +52,8 @@ fn send_os_notification(title: String, body: String, urgent: bool) -> bool {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             wake_window,
             clear_window_attention,

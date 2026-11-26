@@ -13,7 +13,7 @@ const statusMessage = (code: number = 0) => ({
   484: '号码位数不完整，请核对后再拨。',
   486: '线路或对方正忙。',
   487: '呼叫被远端中止。',
-  488: '双方没有可用的音频编码。',
+  488: '媒体协商未通过（488）：可能是 VPN/代理导致无可用语音通道，或音频编码不兼容。',
   500: '网关或服务器内部错误，请稍后再试。',
   502: '网关上游异常，请稍后再试。',
   503: '服务暂时不可用。',
@@ -176,6 +176,144 @@ function callFailureMessage(
   return classifyCallFailure(code, reasons, context).message
 }
 
+export interface SdpIceInspection {
+  total: number
+  routableIpv4: number
+  srflx: number
+  relay: number
+  mdns: number
+  ipv6: number
+  tunHint: boolean
+  hasUsableIpv4: boolean
+  mdnsOnly: boolean
+}
+
+function isRoutableIpv4Address(addr: string): boolean {
+  const parts = addr.split('.')
+  if (parts.length !== 4) return false
+  const nums = parts.map(p => (/^\d+$/.test(p) ? Number(p) : -1))
+  if (nums.some(n => n < 0 || n > 255)) return false
+  return nums[0] !== 0 && nums[0] !== 127
+}
+
+export function inspectSdpIceCandidates(sdp: string): SdpIceInspection {
+  let total = 0
+  let routableIpv4 = 0
+  let srflx = 0
+  let relay = 0
+  let mdns = 0
+  let ipv6 = 0
+  let tunHint = false
+  for (const rawLine of String(sdp || '').split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line.startsWith('a=candidate:')) continue
+    total += 1
+    const parts = line.split(/\s+/)
+    const addr = parts[4] || ''
+    const typIdx = parts.indexOf('typ')
+    const typ = typIdx >= 0 ? (parts[typIdx + 1] || '').toLowerCase() : ''
+    if (addr.endsWith('.local')) {
+      mdns += 1
+    } else if (addr.includes(':')) {
+      ipv6 += 1
+    } else if (isRoutableIpv4Address(addr)) {
+      routableIpv4 += 1
+      if (typ === 'srflx') srflx += 1
+      if (typ === 'relay') relay += 1
+      if (addr.startsWith('198.18.') || addr.startsWith('198.19.') || addr.startsWith('100.64.')) {
+        tunHint = true
+      }
+    }
+  }
+  return {
+    total,
+    routableIpv4,
+    srflx,
+    relay,
+    mdns,
+    ipv6,
+    tunHint,
+    hasUsableIpv4: routableIpv4 > 0,
+    mdnsOnly: mdns > 0 && routableIpv4 === 0,
+  }
+}
+
+async function waitForRoutableIpv4Candidate(pc: RTCPeerConnection, extraTimeoutMs: number): Promise<void> {
+  if (pc.iceGatheringState === 'complete' || extraTimeoutMs <= 0) return
+  await new Promise<void>(resolve => {
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      pc.removeEventListener('icecandidate', onCandidate)
+      pc.removeEventListener('icegatheringstatechange', onStateChange)
+      resolve()
+    }
+    const onCandidate = (event: RTCPeerConnectionIceEvent) => {
+      const line = event.candidate?.candidate || ''
+      if (!line) {
+        finish()
+        return
+      }
+      if (inspectSdpIceCandidates(line).hasUsableIpv4) {
+        finish()
+      }
+    }
+    const onStateChange = () => {
+      if (pc.iceGatheringState === 'complete') finish()
+    }
+    const timer = setTimeout(finish, extraTimeoutMs)
+    pc.addEventListener('icecandidate', onCandidate)
+    pc.addEventListener('icegatheringstatechange', onStateChange)
+  })
+}
+
+export function createGuardedSessionDescriptionHandlerFactory(
+  mediaStreamFactory: () => Promise<MediaStream>,
+  hasConfiguredIceServers: () => boolean,
+  graceTimeoutMs = 3500,
+) {
+  const baseFactory = Web.defaultSessionDescriptionHandlerFactory(mediaStreamFactory)
+  return (session: Session, options?: Parameters<typeof baseFactory>[1]) => {
+    const handler = baseFactory(session, options) as Web.SessionDescriptionHandler & {
+      peerConnection?: RTCPeerConnection
+    }
+    if (!handler || typeof handler.getDescription !== 'function') {
+      return handler
+    }
+    const rawGetDescription = handler.getDescription.bind(handler)
+    handler.getDescription = async (descOptions, modifiers) => {
+      let result = await rawGetDescription(descOptions, modifiers)
+      if (!result?.body || !/\bm=audio\b/i.test(result.body)) {
+        return result
+      }
+      let inspected = inspectSdpIceCandidates(result.body)
+      const hasIce = hasConfiguredIceServers()
+      if (!inspected.hasUsableIpv4 && handler.peerConnection && hasIce) {
+        await waitForRoutableIpv4Candidate(handler.peerConnection, graceTimeoutMs)
+        const updatedSdp = handler.peerConnection.localDescription?.sdp
+        if (updatedSdp) {
+          result = { ...result, body: updatedSdp }
+          inspected = inspectSdpIceCandidates(updatedSdp)
+        }
+      }
+      if (!inspected.hasUsableIpv4) {
+        if (inspected.mdnsOnly) {
+          throw new ClientFailure(
+            hasIce
+              ? '仅获取到受限的 .local 候选地址且 STUN/TURN 候选超时，已中止本次协商以避免接通时 488 失败；请允许麦克风权限或检查代理/VPN 设置。'
+              : '仅获取到受限的 .local 候选地址且未配置 STUN/TURN 服务器，已中止本次协商以避免接通时 488 失败；请在账号设置中配置 STUN/TURN 或允许麦克风权限。',
+          )
+        }
+        throw new ClientFailure('未获取到可用语音网络候选地址，已中止本次协商以避免接通时 488 失败；请检查网络或代理设置。')
+      }
+      return result
+    }
+    return handler
+  }
+}
+
 // Only messages created by this adapter may reach the UI. SDK errors can
 // contain full SIP addresses or transport request details.
 class ClientFailure extends Error {}
@@ -250,6 +388,7 @@ export class SipPhone implements Transport {
     const uri = UserAgent.makeURI(`sip:${account.username}@${account.domain}`)
     if (!uri) throw new Error('SIP 账号地址无效。')
     const authHa1 = account.ha1?.trim().toLowerCase()
+    const iceServers = account.iceServers ?? []
     const ua = new UserAgent({
       uri,
       authorizationUsername: account.authorizationUsername || account.username,
@@ -257,23 +396,26 @@ export class SipPhone implements Transport {
       logBuiltinEnabled: false, logConfiguration: false, logConnector: () => {},
       reconnectionAttempts: 0,
       transportOptions: { server: account.server, traceSip: false, connectionTimeout: 10 },
-      sessionDescriptionHandlerFactory: Web.defaultSessionDescriptionHandlerFactory(async () => {
-        const owner = this.session
-        const selected = this.inputDevice()
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: selected ? { deviceId: { exact: selected } } : true, video: false })
-        if (this.closing || !owner || !this.isCurrent(owner) || owner.state === SessionState.Terminated) {
-          stream.getTracks().forEach(track => track.stop())
-          throw new Error('通话已取消。')
-        }
-        stream.getAudioTracks().forEach(track => track.addEventListener('ended', () => {
-          if (this.isCurrent(owner)) this.emit({ type: 'message', message: '麦克风已断开，请结束通话后重新选择可用设备。' })
-        }))
-        return stream
-      }),
+      sessionDescriptionHandlerFactory: createGuardedSessionDescriptionHandlerFactory(
+        async () => {
+          const owner = this.session
+          const selected = this.inputDevice()
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: selected ? { deviceId: { exact: selected } } : true, video: false })
+          if (this.closing || !owner || !this.isCurrent(owner) || owner.state === SessionState.Terminated) {
+            stream.getTracks().forEach(track => track.stop())
+            throw new Error('通话已取消。')
+          }
+          stream.getAudioTracks().forEach(track => track.addEventListener('ended', () => {
+            if (this.isCurrent(owner)) this.emit({ type: 'message', message: '麦克风已断开，请结束通话后重新选择可用设备。' })
+          }))
+          return stream
+        },
+        () => (this.account?.iceServers?.length ?? 0) > 0,
+      ),
       // Default to empty iceServers for LAN deployments unless explicitly configured on the SIP profile.
       sessionDescriptionHandlerFactoryOptions: {
-        iceGatheringTimeout: 2000,
-        peerConnectionConfiguration: { iceServers: account.iceServers ?? [] },
+        iceGatheringTimeout: iceServers.length > 0 ? 4500 : 2000,
+        peerConnectionConfiguration: { iceServers },
       },
       delegate: {
         onInvite: invitation => {
@@ -414,7 +556,7 @@ export class SipPhone implements Transport {
       } })
     } catch (error) {
       if (!this.isCurrent(session)) return
-      const msg = mediaFailure(error)
+      const msg = error instanceof ClientFailure ? error.message : mediaFailure(error)
       this.emit({ type: 'message', message: msg })
       await session.dispose().catch(() => {})
       this.finish('failed', msg)
@@ -429,7 +571,7 @@ export class SipPhone implements Transport {
       await session.accept({ sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } } })
     } catch (error) {
       if (this.session !== session) return
-      const msg = mediaFailure(error)
+      const msg = error instanceof ClientFailure ? error.message : mediaFailure(error)
       this.emit({ type: 'message', message: msg })
       await session.dispose().catch(() => {})
       this.finish('failed', msg)

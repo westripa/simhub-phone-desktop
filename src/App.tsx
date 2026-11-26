@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AccountDialog } from '@/components/account-dialog'
 import { AudioDialog } from '@/components/audio-dialog'
 import { CloseDialog } from '@/components/close-dialog'
+import { UpdateDialog } from '@/components/update-dialog'
 import { NumbersView } from '@/components/numbers/numbers-view'
 import { ActiveCall } from '@/components/phone/active-call'
 import { DialerView } from '@/components/phone/dialer-view'
@@ -12,6 +13,7 @@ import { ActivityBar } from '@/components/workbench/activity-bar'
 import { StatusBar } from '@/components/workbench/status-bar'
 import { Titlebar } from '@/components/workbench/titlebar'
 import type { View } from '@/components/workbench/view'
+import { useAppUpdater } from '@/phone/hooks/use-app-updater'
 import { useCallSounds } from '@/phone/hooks/use-call-sounds'
 import { useCloseGuard } from '@/phone/hooks/use-close-guard'
 import { useDesktopAlert } from '@/phone/hooks/use-desktop-alert'
@@ -30,11 +32,16 @@ export default function App() {
   const [view, setView] = useState<View>('dial')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [audioOpen, setAudioOpen] = useState(false)
+  const [updateOpen, setUpdateOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const devices = useDevices(phone.audio, phone.inputDevice, phone.notice)
   const sounds = useCallSounds(state, devices.selectedOutput, phone.notice)
   const keepInTray = account.mode === 'sip' && (state.connection === 'registered' || state.connection === 'connecting')
   const closeGuard = useCloseGuard(state, phone.disconnect, phone.hangup, phone.notice, keepInTray)
+  const updater = useAppUpdater({
+    inCall: !!call,
+    beforeRelaunch: async () => { await phone.disconnect().catch(() => {}) },
+  })
   const ready = state.connection === 'registered' && !closeGuard.busy
   const accountBusy = !!call || closeGuard.busy || state.connection === 'connecting'
   const demo = account.mode === 'demo'
@@ -81,7 +88,7 @@ export default function App() {
   }
 
   usePhoneShortcuts({
-    blocked: settingsOpen || audioOpen || !!closeGuard.dialog || closeGuard.busy,
+    blocked: settingsOpen || audioOpen || updateOpen || !!closeGuard.dialog || closeGuard.busy,
     call,
     onDial: dial,
     onAnswer: () => { void phone.answer() },
@@ -146,9 +153,16 @@ export default function App() {
           numberCount={phone.accounts.length}
           onlineCount={onlineCount}
           isDemo={demo}
+          updateAvailable={!!updater.state.availableVersion}
           onViewChange={switchView}
           onAudioSettings={() => setAudioOpen(true)}
           onAccountSettings={() => setSettingsOpen(true)}
+          onCheckUpdates={() => {
+            setUpdateOpen(true)
+            if (!updater.state.availableVersion) {
+              void updater.checkForUpdates(true)
+            }
+          }}
         />
 
         {view === 'dial' && !call && (
@@ -257,7 +271,17 @@ export default function App() {
         </div>
       </div>
 
-      <StatusBar account={account} accounts={phone.accounts} connection={state.connection} call={call} held={state.held} view={view} />
+      <StatusBar
+        account={account}
+        accounts={phone.accounts}
+        connection={state.connection}
+        call={call}
+        held={state.held}
+        view={view}
+        appVersion={updater.state.currentVersion}
+        availableVersion={updater.state.availableVersion}
+        onOpenUpdate={() => setUpdateOpen(true)}
+      />
 
       <AccountDialog
         open={settingsOpen}
@@ -279,6 +303,15 @@ export default function App() {
         }}
       />
       <AudioDialog open={audioOpen} onOpenChange={setAudioOpen} devices={devices} sounds={sounds} inCall={!!call} />
+      <UpdateDialog
+        open={updateOpen}
+        onOpenChange={setUpdateOpen}
+        state={updater.state}
+        inCall={!!call}
+        releasesUrl={updater.releasesUrl}
+        onCheck={() => { void updater.checkForUpdates(true) }}
+        onInstall={() => { void updater.installUpdate() }}
+      />
       <CloseDialog mode={closeGuard.dialog} ending={call?.phase === 'ending'} dismiss={closeGuard.dismiss} endAndExit={closeGuard.endAndExit} forceExit={closeGuard.forceExit} />
       <audio ref={phone.audio} autoPlay playsInline hidden />
     </div>

@@ -13,13 +13,26 @@ const dotClass: Record<Connection, string> = {
   error: 'bg-statusbar-error',
 }
 
-export function StatusBar({ account, accounts, connection, call, held, view }: {
+export function StatusBar({
+  account,
+  accounts,
+  connection,
+  call,
+  held,
+  view,
+  appVersion,
+  availableVersion,
+  onOpenUpdate,
+}: {
   account: Account
   accounts?: AccountSlot[]
   connection: Connection
   call: Call | null
   held?: boolean
   view: View
+  appVersion?: string
+  availableVersion?: string | null
+  onOpenUpdate?: () => void
 }) {
   const onlineCount = accounts?.filter(s => s.status === 'registered').length ?? 0
   const poolSummary = account.mode === 'sip' && (accounts?.length ?? 0) > 1
@@ -39,6 +52,19 @@ export function StatusBar({ account, accounts, connection, call, held, view }: {
       </span>
       <Separator orientation="vertical" className="h-3.5 bg-statusbar-foreground/20" />
       <span className="truncate">{modeSummary}</span>
+      {onOpenUpdate && (
+        <>
+          <Separator orientation="vertical" className="h-3.5 bg-statusbar-foreground/20" />
+          <button
+            type="button"
+            onClick={onOpenUpdate}
+            className="shrink-0 cursor-pointer rounded px-1.5 py-0.5 font-mono text-[11px] hover:bg-statusbar-foreground/15"
+            title="查看版本与更新"
+          >
+            {availableVersion ? `可更新 v${availableVersion}` : `v${appVersion || '0.2.0'}`}
+          </button>
+        </>
+      )}
 
       <span className="ml-auto hidden shrink-0 items-center gap-1.5 text-statusbar-foreground/85 md:flex">
         {!call && view === 'dial' && (

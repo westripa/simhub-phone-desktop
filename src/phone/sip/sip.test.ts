@@ -393,4 +393,32 @@ describe('SIP 客户端收尾', () => {
     expect(state.call).toBeNull()
     await phone.disconnect()
   })
+  test('inspectSdpIceCandidates 识别仅含 .local mDNS 与可用 IPv4/TURN 候选并映射 488 提示', async () => {
+    const { inspectSdpIceCandidates } = await import('./sip')
+    const mdns = inspectSdpIceCandidates([
+      'v=0',
+      'm=audio 9 UDP/TLS/RTP/SAVPF 111',
+      'a=candidate:1 1 udp 2113937151 5aaa616e-05f3-4143-847a-ddafcbbdf885.local 43470 typ host',
+    ].join('\r\n'))
+    expect(mdns.mdns).toBe(1)
+    expect(mdns.routableIpv4).toBe(0)
+    expect(mdns.hasUsableIpv4).toBe(false)
+    expect(mdns.mdnsOnly).toBe(true)
+
+    const usable = inspectSdpIceCandidates([
+      'v=0',
+      'm=audio 9 UDP/TLS/RTP/SAVPF 111',
+      'a=candidate:1 1 udp 33554431 198.51.100.2 52000 typ relay',
+    ].join('\r\n'))
+    expect(usable.relay).toBe(1)
+    expect(usable.hasUsableIpv4).toBe(true)
+    expect(usable.mdnsOnly).toBe(false)
+
+    const f = fixture()
+    await f.phone.connect(profile)
+    await f.phone.dial('9197')
+    FakeSession.latest.receiveRejection(488, [])
+    expect(f.state().message).toContain('VPN/代理')
+    await f.phone.disconnect()
+  })
 })

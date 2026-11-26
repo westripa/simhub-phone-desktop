@@ -42,11 +42,17 @@ sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev 
 - **CI（`.github/workflows/ci.yml`）**：每次 push 到 `main` 或发起 PR 时自动运行：
   - `bun test src/phone`（43 项核心单元测试）与 `tsc --noEmit && vite build`；
   - Linux 桌面端 `cargo check --manifest-path src-tauri/Cargo.toml`。
-- **多端发版（`.github/workflows/release.yml`）**：推送版本 tag（如 `git tag v0.1.0 && git push origin v0.1.0`）或在 Actions 页面手动触发：
-  - **Windows**（`windows-latest`）：NSIS 安装包（`.exe`）
-  - **macOS**（`macos-latest`）：通用二进制镜像（`universal-apple-darwin` `.dmg`）
-  - **Linux**（`ubuntu-22.04`）：`.deb` 与 `.AppImage`
-  - 自动生成 `SHA256SUMS.txt` 并创建 GitHub Release。
+- **多端发版（`.github/workflows/release.yml`）**：推送版本 tag（如 `git tag v0.2.0 && git push origin v0.2.0`）或在 Actions 页面手动触发：
+  - **Windows**（`windows-latest`）：NSIS 安装包（`.exe` + `.exe.sig`）
+  - **macOS**（`macos-latest`）：通用二进制镜像（`universal-apple-darwin` `.dmg`、`.app.tar.gz` + `.app.tar.gz.sig`）
+  - **Linux**（`ubuntu-22.04`）：`.deb` 与 `.AppImage`（+ `.AppImage.sig`）
+  - 自动生成 `latest.json`（Tauri v2 签名更新清单）与 `SHA256SUMS.txt` 并发布至 `westripa/simhub-phone-desktop` GitHub Release。
+
+## 应用内自动更新说明
+
+- 桌面端内置 `tauri-plugin-updater` + `tauri-plugin-process`，启动后与每 6 小时静默检查更新，也可在左侧导航栏或底栏版本号处手动触发。
+- 所有更新包均使用本地 `tauri signer` 私钥在 GitHub Actions（`TAURI_SIGNING_PRIVATE_KEY` Secret）签名，客户端内置对应公钥校验通过后才安装重启。
+- 通话进行期间会阻止立即重启安装，确保不中断语音会话。
 
 ## 开源协议与第三方声明
 
